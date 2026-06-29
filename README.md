@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/hero.svg" alt="ltx" width="880"></p>
+
 Lite Transaction File (LTX)
 =================================
 
