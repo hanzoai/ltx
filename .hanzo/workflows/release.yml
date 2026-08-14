@@ -1,0 +1,59 @@
+# Cuts the release for a v* tag: one archive per target, attached to the release
+# the tag names. The trigger is the tag push itself rather than a release event,
+# so pushing the tag is the whole ceremony — nothing has to be clicked first.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: [hanzo-build-linux-amd64]
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # ltx is pure Go, so all five targets cross-compile from this one runner
+      # and the build needs no per-OS runner to reproduce what it shipped.
+      - name: Build the release archives
+        run: |
+          set -euo pipefail
+          rm -rf dist && mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            os="${target%/*}"; arch="${target#*/}"; ext=""
+            [ "${os}" = windows ] && ext=.exe
+            CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build \
+              -ldflags "-s -w -X 'main.Version=${VERSION}' -X 'main.Commit=${GITHUB_SHA}' -extldflags '-static'" \
+              -o "dist/ltx${ext}" ./cmd/ltx
+            tar -czf "dist/ltx-${VERSION}-${os}-${arch}.tar.gz" -C dist "ltx${ext}"
+            rm -f "dist/ltx${ext}"
+          done
+          ls -l dist
+
+      - name: Publish the release
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          api="${{ github.api_url }}/repos/${{ github.repository }}"
+          id=$(curl -fsS -X POST "${api}/releases" \
+                 -H "Authorization: token ${TOKEN}" \
+                 -H 'Content-Type: application/json' \
+                 -d "{\"tag_name\":\"${VERSION}\",\"name\":\"${VERSION}\"}" \
+               | jq -r '.id // empty')
+          [ -n "${id}" ] || { echo "::error::release ${VERSION} was not created"; exit 1; }
+          for f in dist/*.tar.gz; do
+            curl -fsS -X POST "${api}/releases/${id}/assets?name=$(basename "${f}")" \
+              -H "Authorization: token ${TOKEN}" -F "attachment=@${f}" -o /dev/null
+            echo "attached $(basename "${f}")"
+          done

@@ -1,0 +1,70 @@
+# Publishes ghcr.io/hanzoai/ltx. The image used to go to flyio/ltx on Docker Hub
+# under upstream's account, which is a namespace this fork cannot write to; Hanzo
+# images live under ghcr.io/hanzoai and authenticate with the org's GHCR_USER +
+# GHCR_TOKEN.
+name: Docker Image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: [hanzo-build-linux-amd64]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Two lines of shell rather than docker/metadata-action, so the tag policy
+      # reads where it applies:
+      #   v* tag     -> :X.Y.Z + :latest
+      #   main push  -> :sha-<sha7>, immutable, never floats
+      - id: tags
+        run: |
+          set -euo pipefail
+          image=ghcr.io/hanzoai/ltx
+          case "${GITHUB_REF}" in
+            refs/tags/v*)
+              version="${GITHUB_REF#refs/tags/v}"
+              tags="${image}:${version} ${image}:latest" ;;
+            *)
+              version=""
+              tags="${image}:sha-$(printf '%s' "${GITHUB_SHA}" | cut -c1-7)" ;;
+          esac
+          {
+            echo "version=${version}"
+            echo 'list<<EOF'
+            printf '%s\n' ${tags}
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+          echo "publishing ${tags}"
+
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          driver-opts: |
+            network=host
+
+      # Without this the push is unauthenticated and the registry 403s.
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USER }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ steps.tags.outputs.list }}
+          build-args: |
+            LTX_VERSION=${{ steps.tags.outputs.version }}
+            LTX_COMMIT=${{ github.sha }}

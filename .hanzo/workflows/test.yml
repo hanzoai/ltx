@@ -1,0 +1,23 @@
+name: Unit Test
+
+on: [push]
+
+jobs:
+  test:
+    # The label the git-runner fleet advertises. A label nothing advertises
+    # queues to the timeout instead of failing, which reports nothing at all.
+    runs-on: [hanzo-build-linux-amd64]
+    steps:
+      - uses: actions/checkout@v4
+
+      # go.mod is the one place the version lives; the old '1.24' pin sits below
+      # the directive, so the build failed on the toolchain, not the code.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run unit tests
+        run: go test -v ./...
+
+      - name: Build binary
+        run: go install ./cmd/ltx
