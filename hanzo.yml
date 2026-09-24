@@ -1,0 +1,10 @@
+# Hanzo CI/CD for hanzoai/ltx: .github/workflows/cicd.yml imports hanzoai/ci,
+# which reads this file. The build door builds each image, one BuildKit Job
+# per platform.
+images:
+  - name: ltx
+    context: .
+    dockerfile: Dockerfile
+    repo: ghcr.io/hanzoai/ltx
+    platforms: [linux/amd64]
+    args: { LTX_VERSION: "${VERSION}", LTX_COMMIT: "${SHA}" }
