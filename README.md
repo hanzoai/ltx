@@ -3,6 +3,8 @@
 Lite Transaction File (LTX)
 =================================
 
+[![Open in Hanzo](https://hanzo.app/badges/open-in-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/ltx&ref=main&action=open) [![Edit with Hanzo](https://hanzo.app/badges/edit-with-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/ltx&ref=main&action=edit) [![Deploy with Hanzo](https://hanzo.app/badges/deploy-with-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/ltx&ref=main&action=deploy)
+
 The LTX file format provides a way to store SQLite transactional data in
 a way that can be encrypted and compacted and is optimized for performance.
 
